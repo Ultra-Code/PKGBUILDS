@@ -1,0 +1,47 @@
+# Maintainer: Ultra Code (Mega Alpha) <mega.alpha100@gmail.com>
+pkgname=checkflags
+pkgver="0.0.1"
+pkgrel=1
+pkgdesc="check and verify makepkg flags"
+arch=('x86_64')
+url="https://github.com/Ultra-Code"
+license=('MIT')
+provides=()
+conflicts=()
+# source=("https://zigtools-releases.nyc3.digitaloceanspaces.com/zls/master/$CARCH-linux/zls")
+# sha256sums_x86_64=('326427a46b0f736a6fcbf1d957b4b2793ac5e92f4bf504d1a18b3568e7f2eb09')
+makedepends=()
+checkdepends=()
+
+build() {
+	(
+	set -o pipefail
+	)
+}
+
+package() {
+    echo CARCH $CARCH
+    echo CFLAGS $CFLAGS
+    echo LDFLAGS $LDFLAGS
+    echo MAKEFLAGS $MAKEFLAGS
+    echo RUSTFLAGS $RUSTFLAGS
+    echo GOFLAGS $GOFLAGS
+    echo DEBUG_RUSTFLAGS $DEBUG_RUSTFLAGS
+    echo DEBUG_CXXFLAGS $DEBUG_CXXFLAGS
+    echo DEBUG_CFLAGS $DEBUG_CFLAGS
+    echo BUILDENV $BUILDENV
+    echo BUILDDIR $BUILDDIR
+    # https://stackoverflow.com/questions/15691942/print-array-elements-on-separate-lines-in-bash
+    printf "OPTIONS %s\n" "${OPTIONS[*]}"
+    echo INTEGRITY_CHECK $INTEGRITY_CHECK
+    echo PKGDEST $PKGDEST
+    echo SRCDEST $SRCDEST
+    echo SRCPKGDEST $SRCPKGDEST
+    echo LOGDEST $LOGDEST
+    echo PACKAGER $PACKAGER
+    printf "COMPRESSXZ %s\n" "${COMPRESSXZ[*]}"
+    printf "COMPRESSZST %s\n" "${COMPRESSZST[*]}"
+    echo PKGEXT $PKGEXT
+    echo SRCEXT $SRCEXT
+    echo GITFLAGS $GITFLAGS
+}

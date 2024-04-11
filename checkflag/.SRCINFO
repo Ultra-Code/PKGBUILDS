@@ -1,0 +1,9 @@
+pkgbase = checkflags
+	pkgdesc = check and verify makepkg flags
+	pkgver = 0.0.1
+	pkgrel = 1
+	url = https://github.com/Ultra-Code
+	arch = x86_64
+	license = MIT
+
+pkgname = checkflags
