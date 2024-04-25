@@ -15,33 +15,34 @@ checkdepends=()
 
 build() {
 	(
-	set -o pipefail
+		set -o pipefail
+	    echo CARCH $CARCH
+	    echo CFLAGS $CFLAGS
+	    echo LDFLAGS $LDFLAGS
+	    echo MAKEFLAGS $MAKEFLAGS
+	    echo RUSTFLAGS $RUSTFLAGS
+	    echo GOFLAGS $GOFLAGS
+	    echo DEBUG_RUSTFLAGS $DEBUG_RUSTFLAGS
+	    echo DEBUG_CXXFLAGS $DEBUG_CXXFLAGS
+	    echo DEBUG_CFLAGS $DEBUG_CFLAGS
+	    printf "BUILDENV %s\n" "${BUILDENV[*]}"
+	    echo BUILDDIR $BUILDDIR
+	    # https://stackoverflow.com/questions/15691942/print-array-elements-on-separate-lines-in-bash
+	    printf "OPTIONS %s\n" "${OPTIONS[*]}"
+	    echo INTEGRITY_CHECK $INTEGRITY_CHECK
+	    echo PKGDEST $PKGDEST
+	    echo SRCDEST $SRCDEST
+	    echo SRCPKGDEST $SRCPKGDEST
+	    echo LOGDEST $LOGDEST
+	    echo PACKAGER $PACKAGER
+	    printf "COMPRESSXZ %s\n" "${COMPRESSXZ[*]}"
+	    printf "COMPRESSZST %s\n" "${COMPRESSZST[*]}"
+	    echo PKGEXT $PKGEXT
+	    echo SRCEXT $SRCEXT
+	    echo GITFLAGS $GITFLAGS
 	)
 }
 
 package() {
-    echo CARCH $CARCH
-    echo CFLAGS $CFLAGS
-    echo LDFLAGS $LDFLAGS
-    echo MAKEFLAGS $MAKEFLAGS
-    echo RUSTFLAGS $RUSTFLAGS
-    echo GOFLAGS $GOFLAGS
-    echo DEBUG_RUSTFLAGS $DEBUG_RUSTFLAGS
-    echo DEBUG_CXXFLAGS $DEBUG_CXXFLAGS
-    echo DEBUG_CFLAGS $DEBUG_CFLAGS
-    echo BUILDENV $BUILDENV
-    echo BUILDDIR $BUILDDIR
-    # https://stackoverflow.com/questions/15691942/print-array-elements-on-separate-lines-in-bash
-    printf "OPTIONS %s\n" "${OPTIONS[*]}"
-    echo INTEGRITY_CHECK $INTEGRITY_CHECK
-    echo PKGDEST $PKGDEST
-    echo SRCDEST $SRCDEST
-    echo SRCPKGDEST $SRCPKGDEST
-    echo LOGDEST $LOGDEST
-    echo PACKAGER $PACKAGER
-    printf "COMPRESSXZ %s\n" "${COMPRESSXZ[*]}"
-    printf "COMPRESSZST %s\n" "${COMPRESSZST[*]}"
-    echo PKGEXT $PKGEXT
-    echo SRCEXT $SRCEXT
-    echo GITFLAGS $GITFLAGS
+	build	
 }
