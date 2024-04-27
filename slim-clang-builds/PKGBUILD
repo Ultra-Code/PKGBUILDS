@@ -5,14 +5,15 @@
 #INFO: https://llvm.org/docs/BuildingADistribution.html
 #INFO: https://libcxx.llvm.org/BuildingLibcxx.html
 
-pkgbase=llvm-minimal-git
-pkgname=(llvm-minimal-git llvm-libs-minimal-git clang-minimal-git clang-libs-minimal-git clang-opencl-headers-minimal-git)
+pkgname=(llvm-minimal-git llvm-libs-minimal-git clang-minimal-git)
 pkgver=19.0.0_r496343.60baaf153d
 pkgrel=1
-arch=('x86_64')
+pkgdesc='C language family frontend for LLVM (trimmed down git version)'
 url="https://llvm.org/"
+pkgbase=llvm-minimal-git
+arch=('x86_64')
 license=('custom:Apache 2.0 with LLVM Exception')
-makedepends=(git clang libc++ ninja cmake mold libffi libedit ncurses libxml2
+makedepends=(git clang libc++ llvm-libs ninja cmake mold libffi libedit ncurses libxml2
   libxcrypt python python-setuptools)
 # b361b5369ed4
 source=("git+https://github.com/llvm/llvm-project.git"
@@ -68,55 +69,54 @@ pkgver() {
 
 build() {
   local cmake_args=(
-    -G Ninja
-    -D CMAKE_BUILD_TYPE=Release
-    -D CMAKE_INSTALL_PREFIX=/usr
-    -D LLVM_BINUTILS_INCDIR=/usr/include
-    -D CMAKE_C_COMPILER=clang
-    -D CMAKE_CXX_COMPILER=clang++
-    -D LLVM_HOST_TRIPLE="${CHOST}"
-    -D CMAKE_C_FLAGS_RELEASE="${CFLAGS}"
-    -D CMAKE_CXX_FLAGS_RELEASE="${CXXFLAGS} -Wno-modules-import-nested-redundant"
-    -D LLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lldb"
-    -D LLVM_ENABLE_RUNTIMES="compiler-rt;libcxx;libcxxabi;libunwind"
-    -D LLVM_ENABLE_UNWIND_TABLES=OFF
-    -D LLVM_PARALLEL_LINK_JOBS=6
-    -D LLVM_PARALLEL_COMPILE_JOBS=6
-    -D LLVM_TARGETS_TO_BUILD=X86
-    -D LLVM_USE_LINKER=mold
-    -D LLVM_ENABLE_LTO=OFF #Thin increases link time drastically
-    -D LLVM_BUILD_LLVM_DYLIB=ON
-    -D LLVM_LINK_LLVM_DYLIB=ON
-    -D CLANG_LINK_CLANG_DYLIB=ON
-    -D LLVM_INSTALL_UTILS=ON
-    -D LLVM_ENABLE_LIBCXX=ON
-    -D LLVM_ENABLE_MODULES=ON
-    -D LIBCXX_INSTALL_MODULES=ON
-    -D LLVM_BUILD_BENCHMARKS=OFF
-    -D LLVM_INCLUDE_BENCHMARKS=OFF
-    -D LLVM_BUILD_DOCS=OFF
-    -D LLVM_INCLUDE_DOCS=OFF
-    -D LLVM_BUILD_EXAMPLES=OFF
-    -D LLVM_INCLUDE_EXAMPLES=OFF
-    -D LLVM_BUILD_TESTS=OFF
-    -D LLVM_INCLUDE_TESTS=OFF
-    -D LLVM_ENABLE_BINDINGS=OFF
+    -GNinja
+    -DCMAKE_BUILD_TYPE=Release
+    -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF
+    -DCMAKE_INSTALL_PREFIX=/usr
+    -DLLVM_BINUTILS_INCDIR=/usr/include
+    -DCMAKE_C_COMPILER=clang
+    -DCMAKE_CXX_COMPILER=clang++
+    -DLLVM_PARALLEL_LINK_JOBS=6
+    -DLLVM_PARALLEL_COMPILE_JOBS=6
+    -DLLVM_HOST_TRIPLE="${CHOST}"
+    -DCMAKE_C_FLAGS_RELEASE="${CFLAGS}"
+    -DCMAKE_CXX_FLAGS_RELEASE="${CXXFLAGS} -Wno-modules-import-nested-redundant"
+    -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lldb"
+    -DLLVM_ENABLE_RUNTIMES="compiler-rt;libcxx;libcxxabi;libunwind"
+    -DLLVM_ENABLE_LIBCXX=ON
+    -DLLVM_ENABLE_MODULES=ON
+    -DLLVM_ENABLE_UNWIND_TABLES=OFF
+    # -DLIBCXXABI_USE_LLVM_UNWINDER=OFF
+    -DLIBCXX_ENABLE_STATIC=OFF
+    -DLIBCXX_INSTALL_MODULES=ON
+    -DLLVM_TARGETS_TO_BUILD=X86
+    -DLLVM_USE_LINKER=mold
+    -DLLVM_ENABLE_LTO=OFF #Thin increases link time drastically
+    -DLLVM_BUILD_LLVM_DYLIB=ON
+    -DLLVM_LINK_LLVM_DYLIB=ON
+    -DCLANG_LINK_CLANG_DYLIB=ON
+    -DLLVM_INSTALL_UTILS=ON
+    -DLLVM_BUILD_BENCHMARKS=OFF
+    -DLLVM_INCLUDE_BENCHMARKS=OFF
+    -DLLVM_BUILD_DOCS=OFF
+    -DLLVM_INCLUDE_DOCS=OFF
+    -DLLVM_BUILD_EXAMPLES=OFF
+    -DLLVM_INCLUDE_EXAMPLES=OFF
+    -DLLVM_BUILD_TESTS=OFF
+    -DLLVM_INCLUDE_TESTS=OFF
+    -DLLVM_ENABLE_BINDINGS=OFF
   )
-
-  #GCC issue build aborts with FORTIFY_SOURCE=3 , see https://github.com/llvm/llvm-project/issues/85509
-  # export CFLAGS="${CFLAGS/_FORTIFY_SOURCE=3/_FORTIFY_SOURCE=2}"
-
   cmake -B _build -S "$srcdir"/llvm-project/llvm "${cmake_args[@]}" -Wno-dev
 
   pushd "$srcdir"/_build
   local distribution_components=$(_get_distribution_components | paste -sd\;)
   popd
   test -n "$distribution_components"
-  cmake_args+=(-D LLVM_DISTRIBUTION_COMPONENTS="$distribution_components")
+  cmake_args+=(-DLLVM_DISTRIBUTION_COMPONENTS="$distribution_components")
 
-  cmake -B _build -S "$srcdir"/llvm-project/llvm "${cmake_args[@]}" -Wno-dev | tee ${pkgname}-configure.log
+  cmake -B _build -S "$srcdir"/llvm-project/llvm "${cmake_args[@]}" -Wno-dev
 
-  time ninja -C _build | tee ${pkgname}-build.log
+  ninja -C _build
 }
 
 package_llvm-minimal-git() {
@@ -129,54 +129,40 @@ package_llvm-minimal-git() {
   )
 
   DESTDIR="$pkgdir" ninja -C _build install-distribution
-  # | tee ${pkgname}-install.log
 
   # Include lit for running lit-based tests in other projects
   pushd "$srcdir"/llvm-project/llvm/utils/lit
-  python3 setup.py install --root="$pkgdir" -O1
   # -O1 ensures the python files for lit will be optimized
+  python3 setup.py install --root="$pkgdir" -O1
   popd
 
   # Remove symlinks to prevent conflict with repo llvm-libs
   rm -f "$pkgdir"/usr/lib/lib{LLVM,LTO,Remarks}.so
 
-  # for an unknown reason !staticlibs doesn't remove all static *.a libraries from clang
-  # ensure they are removed
-  find "$pkgdir"/usr/lib/clang -depth -type f -name "*.a" -delete
+  # prepare llvm-libs dir in srcdir to store llvm runtime libraries files that would be part of llvm-libs-minimal-git package
+  mkdir -p "$srcdir"/llvm-libs && mv -f "$pkgdir"/usr/lib/{libLLVM*.so*,libLTO.so.*,libRemarks.so.*} "$srcdir"/llvm-libs
 
-  # prepare folders in srcdir to store files that are placed in other package_*() functions
-  mkdir -p "$srcdir"{/llvm-libs/usr/lib,/clang-libs/usr/lib,/clang-opencl-headers/usr/{lib/clang/$_major_ver/include,include/clang/Basic}}
+  # prepare clang dir to store clang-minimal-git package files
+  mkdir -p "$srcdir"/clang/{bin,lib,include,share}
 
-  # The llvm runtime libraries go into llvm-libs-minimal-git
-  mv -f "$pkgdir"/usr/lib/{libLLVM*.so*,libLTO.so.*,libRemarks.so.*} "$srcdir"/llvm-libs/usr/lib
-
-  # The clang runtime libraries go into clang-libs-minimal-git
-  mv -f "$pkgdir"/usr/lib/libclang{,-cpp}.so* "$srcdir"/clang-libs/usr/lib
-
-  # clang opencl files go to clang-opencl-headers-git
-  mv -f "$pkgdir"/usr/lib/clang/$_major_ver/include/opencl* "$srcdir"/clang-opencl-headers/usr/lib/clang/$_major_ver/include
-  mv -f "$pkgdir"/usr/include/clang/Basic/OpenCL* "$srcdir"/clang-opencl-headers/usr/include/clang/Basic
-
-  # clang-minimal-git files go to a separate package
-  mkdir -p "$srcdir"/clang/usr/{bin,include,lib,lib/cmake,share}
-  mv -f "$pkgdir"/usr/lib/{libear,libscanbuild,clang} "$srcdir"/clang/usr/lib
-  mv -f "$pkgdir"/usr/lib/cmake/clang "$srcdir"/clang/usr/lib/cmake/
-  mv -f "$pkgdir"/usr/include/{clang,clang-c} "$srcdir"/clang/usr/include/
-  # llvm project uses /usr/libexec and setting CMAKE_INSTALL_LIBEXECDIR doesn't affect that.
-  # to comply with archlinux packaging standards we have to move some files manually
-  mv -f "$pkgdir"/usr/libexec/* "$srcdir"/clang/usr/lib/clang
-  rmdir "$pkgdir"/usr/libexec
-  mv -f "$pkgdir"/usr/bin/{analyze-build,c-index-test,clang*,diagtool,find-all-symbols,git-clang-format,hmaptool,intercept-build,modularize,pp-trace,run-clang-tidy,scan-build,scan-build-py,scan-view} "$srcdir"/clang/usr/bin/
-  mv -f "$pkgdir"/usr/share/{clang,man,opt-viewer,scan-build,scan-view} "$srcdir"/clang/usr/share/
+  mv -f "$pkgdir"/usr/lib/{libear,libscanbuild,clang,cmake/clang,libclang{,-cpp}.so*} "$srcdir"/clang/lib
+  # Move analyzer scripts out of /usr/libexec
+  mv -f "$pkgdir"/usr/libexec/* "$srcdir"/clang/lib/clang && rmdir "$pkgdir"/usr/libexec
+  # clang includes
+  mv -f "$pkgdir"/usr/include/{clang,clang-c} "$srcdir"/clang/include
+  # clang binaries
+  mv -f "$pkgdir"/usr/bin/{analyze-build,c-index-test,clang*,diagtool,find-all-symbols,git-clang-format,hmaptool,intercept-build,modularize,pp-trace,run-clang-tidy,scan-build,scan-build-py,scan-view} "$srcdir"/clang/bin
+  # clang share
+  mv -f "$pkgdir"/usr/share/{clang,man,opt-viewer,scan-build,scan-view} "$srcdir"/clang/share/
 
   install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE.TXT
 }
 
 package_llvm-libs-minimal-git() {
   pkgdesc="LLVM runtime libraries, trimmed down trunk version"
-  depends=(gcc-libs zlib libffi libedit ncurses libxml2)
-
-  cp --preserve --recursive "$srcdir"/llvm-libs/* "$pkgdir"/
+  depends=(llvm-libs zlib libffi libedit ncurses libxml2)
+  # create $pkgdir/usr/lib and copy content from llvm-libs/* into it
+  install -Dt "$pkgdir"/usr/lib "$srcdir"/llvm-libs/*
 
   install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.TXT
 }
@@ -187,21 +173,31 @@ _python_optimize() {
   python -OO -m compileall "$@"
 }
 
+# TODO: if install size increases drastically add back the find cmd that deletes static libraries
 package_clang-minimal-git() {
   pkgdesc='C language family frontend for LLVM (trimmed down git version)'
-  depends=(llvm-libs-minimal-git clang-libs-minimal-git clang)
+  depends=(llvm-libs clang)
   optdepends=('openmp: OpenMP support in clang with -fopenmp'
     'python: for scan-view, scan-build, git-clang-format, clang-rename and python bindings'
     'llvm-minimal-git: referenced by some clang headers')
   conflicts=(compiler-rt clang)
   provides=(compiler-rt clang clang-analyzer clang-tools-extra)
 
-  cp --preserve --recursive "$srcdir"/clang/* "$pkgdir"/
+  # clang libraries
+  install -Dt "$pkgdir"/usr/lib "$srcdir"/clang/lib/{libear,libscanbuild,clang,cmake/clang,libclang{,-cpp}.so*}
+
+  # clang includes
+  install -Dt "$pkgdir"/usr/include "$srcdir"/clang/include/{clang,clang-c}
+
+  # clang binaries
+  install -Dt "$pkgdir"/usr/bin "$srcdir"/clang/bin/{analyze-build,c-index-test,clang*,diagtool,find-all-symbols,git-clang-format,hmaptool,intercept-build,modularize,pp-trace,run-clang-tidy,scan-build,scan-build-py,scan-view}
+
+  # clang share
+  install -Dt "$pkgdir"/usr/share "$srcdir"/clang/share/{clang,man,opt-viewer,scan-build,scan-view}
 
   # Move scanbuild-py into site-packages
   local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
-  install -d "$pkgdir/$site_packages"
-  mv "$pkgdir"/usr/lib/{libear,libscanbuild} "$pkgdir/$site_packages/"
+  install -Dt "$pkgdir/$site_packages" "$pkgdir"/usr/lib/{libear,libscanbuild}
 
   sed -i 's|libexec|lib/clang|' \
     "$pkgdir/usr/bin/scan-build" \
@@ -213,32 +209,4 @@ package_clang-minimal-git() {
   install -Dm644 "$srcdir"/llvm-project/compiler-rt/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/compiler-rt-LICENSE.TXT
   install -Dm644 "$srcdir"/llvm-project/clang-tools-extra/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/clang-tools-extra-LICENSE.TXT
   install -Dm644 "$srcdir"/llvm-project/clang/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/clang-LICENSE.TXT
-}
-
-package_clang-libs-minimal-git() {
-  pkgdesc="clang runtime libraries, trunk version"
-  depends=(llvm-libs-minimal-git="$pkgver-$pkgrel")
-  # the functionality offered by this package is part of the clang repo pacakge.
-  # TODO: when/if this functionality is split off from repo clang, verify if changes are needed to this package
-
-  provides=('clang-libs')
-  conflicts=("clang<$pkgver-$pkgrel" 'clang-libs')
-
-  cp --preserve --recursive "$srcdir"/clang-libs/* "$pkgdir"/
-
-  install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.TXT
-}
-
-package_clang-opencl-headers-minimal-git() {
-  pkgdesc="clang headers & include files for OpenCL, trunk version"
-  depends=(clang-libs-minimal-git="$pkgver-$pkgrel")
-  # the functionality offered by this package is part of the clang repo package.
-  # As far as I know rusticl from mesa is the only known user.
-  # TODO: when/if this functionality is split off from repo clang, verify if changes are needed to this package
-  provides=('clang-opencl-headers')
-  conflicts=("clang<$pkgver-$pkgrel" 'clang-opencl-headers')
-
-  cp --preserve --recursive "$srcdir"/clang-opencl-headers/* "$pkgdir"/
-
-  install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.TXT
 }
