@@ -1,12 +1,16 @@
 # Maintainer: Lone_Wolf <lone_wolf@klaas-de-kat.nl>
+# LEARN: how to execute only a particular makepkg step .ie prepare, build, package
+# MOVE: this to dev branch as it is very brittle
+# CHANGE: back to ON/OF instead of YES/NO
+# EXPLORE: install targets with TOOLCHAIN_ONLY option
 
-#INFO: https://llvm.org/docs/CMake.html
-#INFO: https://llvm.org/docs/AdvancedBuilds.html
-#INFO: https://llvm.org/docs/BuildingADistribution.html
-#INFO: https://libcxx.llvm.org/BuildingLibcxx.html
+# INFO: https://llvm.org/docs/CMake.html
+# INFO: https://llvm.org/docs/AdvancedBuilds.html
+# INFO: https://llvm.org/docs/BuildingADistribution.html
+# INFO: https://libcxx.llvm.org/BuildingLibcxx.html
 
-pkgname=(llvm-minimal-git llvm-libs-minimal-git clang-minimal-git)
-pkgver=19.0.0_r497085.b6a8f5486b
+pkgname=(llvm-minimal-git llvm-libs-minimal-git clang-minimal-git libc++-minimal-git libc++abi-minimal-git)
+pkgver=19.0.0_r497198.9c3f5fe88f
 pkgrel=1
 pkgdesc='C language family frontend for LLVM (trimmed down git version)'
 url="https://llvm.org/"
@@ -24,10 +28,15 @@ options=(!lto !debug)
 
 _major_ver=19
 
+# get the list of components to be included in the final distribution
+# NOTE: all enabled PROJECTS and RUNTIMES are built but only those
+# in the distribution component specified by this function would be part
+# of the final executable
 _get_distribution_components() {
   local target
 
-  ninja -t targets | grep -Po 'install-\K.*(?=-stripped)' | while read -r target; do
+  ninja -t targets | grep -Po 'install-\K.*(?=-stripped)' |
+    sort | uniq | while read -r target; do
     case $target in
     # Must come before LLVM* to ensure it isn't skipped
     LLVM) ;;
@@ -37,10 +46,8 @@ _get_distribution_components() {
     distribution | llvm-libraries) continue ;;
     # exclude llvm-exegesis (doesn't seem useful without libpfm)
     llvm-exegesis) continue ;;
-    # don't build functionality conflicting with llvm-libs
-    LLVMgold) continue ;;
-    # exclude static libraries
-    LLVM*) continue ;;
+    # exclude LLVMgold and static libraries
+    LLVMgold | LLVM*) continue ;;
     clang-libraries | clang-tidy-headers) continue ;;
     # Build shared libraries
     clang | clangd | clang-*) ;;
@@ -88,6 +95,7 @@ build() {
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX=/usr
     -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF
+    -DLLVM_ENABLE_ASSERTIONS=OFF
     -DLLVM_BINUTILS_INCDIR=/usr/include
     -DCMAKE_C_COMPILER=clang
     -DCMAKE_CXX_COMPILER=clang++
@@ -98,32 +106,34 @@ build() {
     -DCMAKE_CXX_FLAGS_RELEASE="${CXXFLAGS}"
     -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra"
     -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;compiler-rt"
-    -DLLVM_ENABLE_LIBCXX=YES
-    -DLLVM_ENABLE_MODULES=YES
-    -DLIBCXX_INSTALL_MODULES=YES
-    -DLLVM_ENABLE_UNWIND_TABLES=NO
-    -DLIBCXXABI_USE_LLVM_UNWINDER=NO
+    -DLLVM_ENABLE_LIBCXX=ON
+    -DLLVM_ENABLE_MODULES=ON
+    -DLIBCXX_INSTALL_MODULES=ON
+    -DLLVM_ENABLE_UNWIND_TABLES=OFF
+    -DLIBCXXABI_USE_LLVM_UNWINDER=OFF
     -DLLVM_TARGETS_TO_BUILD=X86
     -DLLVM_USE_LINKER=mold
-    -DLLVM_ENABLE_LTO=NO #Thin increases link time drastically
-    -DLLVM_INSTALL_UTILS=NO
-    -DLLVM_BUILD_LLVM_DYLIB=YES
-    -DLLVM_LINK_LLVM_DYLIB=YES
-    -DCLANG_LINK_CLANG_DYLIB=YES
-    -DLLVM_BUILD_BENCHMARKS=NO
-    -DLLVM_INCLUDE_BENCHMARKS=NO
-    -DLLVM_BUILD_DOCS=NO
-    -DLLVM_INCLUDE_DOCS=NO
-    -DLLVM_BUILD_EXAMPLES=NO
-    -DLLVM_INCLUDE_EXAMPLES=NO
-    -DLLVM_BUILD_TESTS=NO
-    -DLLVM_INCLUDE_TESTS=NO
-    -DLLVM_ENABLE_BINDINGS=NO
+    -DLLVM_ENABLE_LTO=OFF #Thin increases link time drastically
+    -DLLVM_INSTALL_UTILS=ON
+    -DLLVM_BUILD_LLVM_DYLIB=ON
+    -DLLVM_LINK_LLVM_DYLIB=ON
+    -DCLANG_LINK_CLANG_DYLIB=ON
+    -DLLVM_BUILD_BENCHMARKS=OFF
+    -DLLVM_INCLUDE_BENCHMARKS=OFF
+    -DLLVM_BUILD_DOCS=OFF
+    -DLLVM_INCLUDE_DOCS=OFF
+    -DLLVM_BUILD_EXAMPLES=OFF
+    -DLLVM_INCLUDE_EXAMPLES=OFF
+    -DLLVM_BUILD_TESTS=OFF
+    -DLLVM_INCLUDE_TESTS=OFF
+    -DLLVM_ENABLE_BINDINGS=OFF
   )
   cmake -B _build -S "$srcdir"/llvm-project/llvm "${cmake_args[@]}" -Wno-dev
 
   pushd "$srcdir"/_build
   local distribution_components=$(_get_distribution_components | paste -sd\;)
+  echo "distribution components:"
+  echo $distribution_components
   popd
   test -n "$distribution_components"
   cmake_args+=(-DLLVM_DISTRIBUTION_COMPONENTS="$distribution_components")
@@ -141,9 +151,9 @@ package_llvm-minimal-git() {
   optdepends=('python: for using lit (LLVM Integrated Tester)'
     'python-setuptools: for using lit'
   )
-  rm -rf "$pkgdir" && rm -rf "$srcdir"/{clang,llvm-libs}
+  # rm -rf "$pkgdir" && rm -rf "$srcdir"/{clang,llvm-libs}
 
-  DESTDIR="$pkgdir" ninja -C _build install-distribution-stripped
+  DESTDIR="$pkgdir" ninja -C _build install-distribution
 
   # Include lit for running lit-based tests in other projects
   pushd "$srcdir"/llvm-project/llvm/utils/lit
@@ -160,7 +170,7 @@ package_llvm-minimal-git() {
   # prepare clang dir to store clang-minimal-git package files
   mkdir -p "$srcdir"/clang/{bin,lib/{cmake,},include,share}
 
-  mv -f "$pkgdir"/usr/lib/{libear,libscanbuild,clang,libclang{,-cpp}.so*} "$srcdir"/clang/lib
+  mv -f "$pkgdir"/usr/lib/{clang,libear,libscanbuild,libclang{,-cpp}.so*} "$srcdir"/clang/lib
   mv -f "$pkgdir"/usr/lib/cmake/clang "$srcdir"/clang/lib/cmake
 
   # Move analyzer scripts out of /usr/libexec
@@ -171,6 +181,15 @@ package_llvm-minimal-git() {
   mv -f "$pkgdir"/usr/bin/{analyze-build,c-index-test,clang*,diagtool,find-all-symbols,git-clang-format,hmaptool,intercept-build,modularize,pp-trace,run-clang-tidy,scan-build,scan-build-py,scan-view} "$srcdir"/clang/bin
   # clang share
   mv -f "$pkgdir"/usr/share/{clang,man,opt-viewer,scan-build,scan-view} "$srcdir"/clang/share/
+
+  # libc++ & libc++abi
+  mkdir -p "$srcdir"/libcxx/{lib,include/{c++,},lib/{c++,}}
+  # for libc++ & libc++abi libraries
+  mv -f "$pkgdir"/usr/lib/"${CHOST}"/* "$srcdir"/libcxx/lib
+  # For header include
+  mv -f "$pkgdir"/usr/include/c++/v1 "$srcdir"/libcxx/include/c++
+  # For modules
+  mv -f "$pkgdir"/usr/share/libc++/v1 "$srcdir"/libcxx/lib/c++
 
   install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE.TXT
 }
@@ -191,7 +210,6 @@ _python_optimize() {
   python -OO -m compileall "$@"
 }
 
-# TODO: if install size increases drastically add back the find cmd that deletes static libraries
 package_clang-minimal-git() {
   pkgdesc='C language family frontend for LLVM (trimmed down git version)'
   depends=(llvm-libs-minimal-git clang)
@@ -205,13 +223,13 @@ package_clang-minimal-git() {
   install -d "$pkgdir"/usr/lib
   cp -a $srcdir/clang/lib/{libear,libscanbuild,clang,cmake,libclang*} $pkgdir/usr/lib
 
-  # clang includes
-  install -d "$pkgdir"/usr/include
-  cp -a "$srcdir"/clang/include/{clang,clang-c} "$pkgdir"/usr/include
-
   # clang binaries
   install -d "$pkgdir"/usr/bin
   cp -a "$srcdir"/clang/bin/{analyze-build,c-index-test,clang*,diagtool,find-all-symbols,git-clang-format,hmaptool,intercept-build,modularize,pp-trace,run-clang-tidy,scan-build,scan-build-py,scan-view} "$pkgdir"/usr/bin
+
+  # clang includes
+  install -d "$pkgdir"/usr/include
+  cp -a "$srcdir"/clang/include/{clang,clang-c} "$pkgdir"/usr/include
 
   # clang share
   install -d "$pkgdir"/usr/share
@@ -232,4 +250,42 @@ package_clang-minimal-git() {
   install -Dm644 "$srcdir"/llvm-project/compiler-rt/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/compiler-rt-LICENSE.TXT
   install -Dm644 "$srcdir"/llvm-project/clang-tools-extra/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/clang-tools-extra-LICENSE.TXT
   install -Dm644 "$srcdir"/llvm-project/clang/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/clang-LICENSE.TXT
+}
+
+package_libc++-minimal-git() {
+  pkgdesc='C language family frontend for LLVM (trimmed down git version)'
+  depends=(libc++abi-minimal-git="$pkgver-$pkgrel")
+  conflicts=(libc++)
+  provides=(libc++-minimal-git)
+
+  #prepare libcxxabi files
+  mkdir -p "$srcdir"/libcxxabi/{lib,include/c++/v1}
+  mv -f "$srcdir"/libcxx/include/c++/v1/*cxxabi* "$srcdir"/libcxxabi/include/c++/v1
+  mv -f "$srcdir"/libcxx/lib/libc++abi* "$srcdir"/libcxxabi/lib
+
+  # For header include
+  # package libc++
+  install -d "$pkgdir"/usr/{lib,include}
+  # move libc++ libriaries and header modules
+  cp -a "$srcdir"/libcxx/lib "$pkgdir"/usr/lib
+  # include headers
+  cp -a "$srcdir"/libcxx/include/c++ "$pkgdir"/usr/include
+
+  install -Dm0644 "$srcdir"/llvm-project/libcxx/CREDITS.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/CREDITS
+  install -Dm0644 "$srcdir"/llvm-project/libcxx/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
+}
+
+package_libc++abi-minimal-git() {
+  pkgdesc='C language family frontend for LLVM (trimmed down git version)'
+  depends=(llvm-libs)
+  conflicts=(libc++abi)
+  provides=(libc++abi-minimal-git)
+
+  #package libcxxabi
+  install -d "$pkgdir"/usr/{lib,include}
+  cp -a "$srcdir"/libcxxabi/lib "$pkgdir"/usr/lib
+  cp -a "$srcdir"/libcxxabi/include "$pkgdir"/usr/include
+
+  install -Dm0644 "$srcdir"/llvm-project/libcxxabi/CREDITS.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/CREDITS
+  install -Dm0644 "$srcdir"/llvm-project/libcxxabi/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
 }
