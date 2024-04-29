@@ -1,0 +1,33 @@
+From d6dc584c40b59119f1320526142141b88585075a Mon Sep 17 00:00:00 2001
+From: Ultra-Code <mega.alpha100@gmail.com>
+Date: Sun, 28 Apr 2024 15:44:26 +0000
+Subject: [PATCH] fix missing include when building clang with modules enabled
+
+In file included from <module-includes>:4:
+/tmp/makepkg/llvm-minimal-git/src/llvm-project/clang/include/clang/Tooling/Inclusions/StandardLibrary.h:41:15: error: missing '#include <vector>'; 'vector' must be declared before it is used
+   41 |   static std::vector<Header> all(Lang L = Lang::CXX);
+      |               ^
+/usr/bin/../include/c++/v1/vector:389:28: note: declaration here is not visible
+  389 | class _LIBCPP_TEMPLATE_VIS vector {
+      |                            ^
+/tmp/makepkg/llvm-minimal-git/src/llvm-project/clang/lib/Tooling/Inclusions/HeaderAnalysis.cpp:9:10: fatal error: could not build module'Clang_ToolingInclusions'
+    9 | #include "clang/Tooling/Inclusions/HeaderAnalysis.h"
+---
+ clang/include/clang/Tooling/Inclusions/StandardLibrary.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/clang/include/clang/Tooling/Inclusions/StandardLibrary.h b/clang/include/clang/Tooling/Inclusions/StandardLibrary.h
+index a39ceb520d..147f505ade 100644
+--- a/clang/include/clang/Tooling/Inclusions/StandardLibrary.h
++++ b/clang/include/clang/Tooling/Inclusions/StandardLibrary.h
+@@ -21,6 +21,7 @@
+ #include "llvm/Support/raw_ostream.h"
+ #include <optional>
+ #include <string>
++#include <vector>
+ 
+ namespace clang {
+ class Decl;
+-- 
+2.44.0
+

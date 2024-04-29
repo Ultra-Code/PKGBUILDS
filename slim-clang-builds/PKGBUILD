@@ -76,7 +76,10 @@ prepare() {
 
 build() {
   CFLAGS=${CFLAGS}
-  CXXFLAGS=${CXXFLAGS}
+  # https://reviews.llvm.org/D142279
+  # GLIBCXX_* seem to enable assertions
+  # Remove all occurances of -Wp,-D_GLIBCXX_ASSERTIONS
+  CXXFLAGS=${CXXFLAGS//-Wp,-D_GLIBCXX_ASSERTIONS/""}
   LDFLAGS=${LDFLAGS}
 
   #Test have C|XXFLAGS exported at the top be for use if it causes it load the user specific ones also
