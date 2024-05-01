@@ -1,7 +1,4 @@
 # Maintainer: Lone_Wolf <lone_wolf@klaas-de-kat.nl>
-# LEARN: how to execute only a particular makepkg step .ie prepare, build, package
-# MOVE: this to dev branch as it is very brittle
-# CHANGE: back to ON/OF instead of YES/NO
 # EXPLORE: install targets with TOOLCHAIN_ONLY option
 
 # INFO: https://llvm.org/docs/CMake.html
@@ -10,7 +7,7 @@
 # INFO: https://libcxx.llvm.org/BuildingLibcxx.html
 
 pkgname=(llvm-minimal-git llvm-libs-minimal-git clang-minimal-git libc++-minimal-git libc++abi-minimal-git)
-pkgver=19.0.0_r497198.9c3f5fe88f
+pkgver=19.0.0_r497376.2647bd7369
 pkgrel=1
 pkgdesc='C language family frontend for LLVM (trimmed down git version)'
 url="https://llvm.org/"
@@ -23,10 +20,10 @@ source=("git+https://github.com/llvm/llvm-project.git"
   fix-missing-include-when-building-clang-with-modules.patch)
 b2sums=('SKIP' 'SKIP')
 
+_major_ver=19
+
 # explicitly disable lto & debug to reduce number of build hangs , resources needed and runtime issues
 options=(!lto !debug)
-
-_major_ver=19
 
 # get the list of components to be included in the final distribution
 # NOTE: all enabled PROJECTS and RUNTIMES are built but only those
@@ -60,6 +57,7 @@ _get_distribution_components() {
   done
 }
 
+# TODO: improve pkgver
 pkgver() {
   cd llvm-project/cmake/Modules
 
@@ -82,14 +80,13 @@ prepare() {
 }
 
 build() {
-  CFLAGS=${CFLAGS}
+  # Ensure optimized build without assertions
+  CFLAGS="${CFLAGS} -DNDEBUG"
   # https://reviews.llvm.org/D142279
-  # GLIBCXX_* seem to enable assertions
-  # Remove all occurances of -Wp,-D_GLIBCXX_ASSERTIONS
-  CXXFLAGS=${CXXFLAGS//-Wp,-D_GLIBCXX_ASSERTIONS/""}
-  LDFLAGS=${LDFLAGS}
+  # Remove GLIBCXX_* since it enables assertions
+  CXXFLAGS=${CXXFLAGS//-Wp,-D_GLIBCXX_ASSERTIONS/"-DNDEBUG"}
+  MAKEFLAGS="${MAKEFLAGS/-j/}"
 
-  #Test have C|XXFLAGS exported at the top be for use if it causes it load the user specific ones also
   local cmake_args=(
     -GNinja
     -DCMAKE_BUILD_TYPE=Release
@@ -99,10 +96,10 @@ build() {
     -DLLVM_BINUTILS_INCDIR=/usr/include
     -DCMAKE_C_COMPILER=clang
     -DCMAKE_CXX_COMPILER=clang++
-    -DLLVM_PARALLEL_LINK_JOBS=6
-    -DLLVM_PARALLEL_COMPILE_JOBS=6
+    -DLLVM_PARALLEL_LINK_JOBS=${MAKEFLAGS:-2}
+    -DLLVM_PARALLEL_COMPILE_JOBS=${MAKEFLAGS:-2}
     -DLLVM_HOST_TRIPLE="${CHOST}"
-    -DCMAKE_C_FLAGS_RELEASE="${CFLAGS} -Wno-modules-import-nested-redundant"
+    -DCMAKE_C_FLAGS_RELEASE="${CFLAGS}"
     -DCMAKE_CXX_FLAGS_RELEASE="${CXXFLAGS}"
     -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra"
     -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;compiler-rt"
@@ -132,8 +129,6 @@ build() {
 
   pushd "$srcdir"/_build
   local distribution_components=$(_get_distribution_components | paste -sd\;)
-  echo "distribution components:"
-  echo $distribution_components
   popd
   test -n "$distribution_components"
   cmake_args+=(-DLLVM_DISTRIBUTION_COMPONENTS="$distribution_components")
@@ -265,11 +260,11 @@ package_libc++-minimal-git() {
 
   # For header include
   # package libc++
-  install -d "$pkgdir"/usr/{lib,include}
+  install -d "$pkgdir"/usr
   # move libc++ libriaries and header modules
-  cp -a "$srcdir"/libcxx/lib "$pkgdir"/usr/lib
+  cp -a "$srcdir"/libcxx/lib "$pkgdir"/usr
   # include headers
-  cp -a "$srcdir"/libcxx/include/c++ "$pkgdir"/usr/include
+  cp -a "$srcdir"/libcxx/include "$pkgdir"/usr
 
   install -Dm0644 "$srcdir"/llvm-project/libcxx/CREDITS.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/CREDITS
   install -Dm0644 "$srcdir"/llvm-project/libcxx/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
@@ -282,9 +277,9 @@ package_libc++abi-minimal-git() {
   provides=(libc++abi-minimal-git)
 
   #package libcxxabi
-  install -d "$pkgdir"/usr/{lib,include}
-  cp -a "$srcdir"/libcxxabi/lib "$pkgdir"/usr/lib
-  cp -a "$srcdir"/libcxxabi/include "$pkgdir"/usr/include
+  install -d "$pkgdir"/usr
+  cp -a "$srcdir"/libcxxabi/lib "$pkgdir"/usr
+  cp -a "$srcdir"/libcxxabi/include "$pkgdir"/usr
 
   install -Dm0644 "$srcdir"/llvm-project/libcxxabi/CREDITS.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/CREDITS
   install -Dm0644 "$srcdir"/llvm-project/libcxxabi/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
