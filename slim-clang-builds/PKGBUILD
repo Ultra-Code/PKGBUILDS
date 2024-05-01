@@ -20,7 +20,7 @@ source=("git+https://github.com/llvm/llvm-project.git"
   fix-missing-include-when-building-clang-with-modules.patch)
 b2sums=('SKIP' 'SKIP')
 
-_major_ver=19
+_major_ver=${pkgver::2}
 
 # explicitly disable lto & debug to reduce number of build hangs , resources needed and runtime issues
 options=(!lto !debug)
@@ -53,28 +53,19 @@ _get_distribution_components() {
     # Anything not covered above is included
     *) ;;
     esac
-    echo $target
+    echo "$target"
   done
 }
 
-# TODO: improve pkgver
 pkgver() {
   cd llvm-project/cmake/Modules
-
-  # This will almost match the output of `llvm-config --version` when the
-  # LLVM_APPEND_VC_REV cmake flag is turned on. The only difference is
-  # dash being replaced with underscore because of Pacman requirements.
-  local _pkgver=$(awk -F 'MAJOR |MINOR |PATCH |)' \
-    'BEGIN { ORS="." ; i=0 } \
-             /set\(LLVM_VERSION_/ { print $2 ; i++ ; if (i==2) ORS="" } \
-             END { print "\n" }' \
-    LLVMVersion.cmake)_r$(git rev-list --count HEAD).$(git rev-parse --short HEAD)
-  echo "${_pkgver}"
+  local _pkgver=$(grep -oP 'LLVM_VERSION_(MAJOR|MINOR|PATCH)\s+\K\d+' LLVMVersion.cmake | tr '\n' '.' | cut -d '.' -f1-3)
+  printf "%s_r%s.%s" "$_pkgver" "$(git rev-list --count HEAD)" "$(git rev-parse --short=10 HEAD)"
 }
 
 prepare() {
-  # fix module build error
   pushd "$srcdir"/llvm-project
+  # patch to fix module build error
   git apply ../fix-missing-include-when-building-clang-with-modules.patch
   popd
 }
@@ -84,7 +75,7 @@ build() {
   CFLAGS="${CFLAGS} -DNDEBUG"
   # https://reviews.llvm.org/D142279
   # Remove GLIBCXX_* since it enables assertions
-  CXXFLAGS=${CXXFLAGS//-Wp,-D_GLIBCXX_ASSERTIONS/"-DNDEBUG"}
+  CXXFLAGS="${CXXFLAGS//-Wp,-D_GLIBCXX_ASSERTIONS/"-DNDEBUG"}"
   MAKEFLAGS="${MAKEFLAGS/-j/}"
 
   local cmake_args=(
@@ -96,8 +87,8 @@ build() {
     -DLLVM_BINUTILS_INCDIR=/usr/include
     -DCMAKE_C_COMPILER=clang
     -DCMAKE_CXX_COMPILER=clang++
-    -DLLVM_PARALLEL_LINK_JOBS=${MAKEFLAGS:-2}
-    -DLLVM_PARALLEL_COMPILE_JOBS=${MAKEFLAGS:-2}
+    -DLLVM_PARALLEL_LINK_JOBS="${MAKEFLAGS:-4}"
+    -DLLVM_PARALLEL_COMPILE_JOBS="${MAKEFLAGS:-4}"
     -DLLVM_HOST_TRIPLE="${CHOST}"
     -DCMAKE_C_FLAGS_RELEASE="${CFLAGS}"
     -DCMAKE_CXX_FLAGS_RELEASE="${CXXFLAGS}"
@@ -146,9 +137,8 @@ package_llvm-minimal-git() {
   optdepends=('python: for using lit (LLVM Integrated Tester)'
     'python-setuptools: for using lit'
   )
-  # rm -rf "$pkgdir" && rm -rf "$srcdir"/{clang,llvm-libs}
 
-  DESTDIR="$pkgdir" ninja -C _build install-distribution
+  DESTDIR="$pkgdir" ninja -C _build install-distribution-stripped
 
   # Include lit for running lit-based tests in other projects
   pushd "$srcdir"/llvm-project/llvm/utils/lit
@@ -196,7 +186,7 @@ package_llvm-libs-minimal-git() {
   install -d "$pkgdir"/usr/lib
   cp -a "$srcdir"/llvm-libs/* "$pkgdir"/usr/lib
 
-  install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.TXT
+  install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE.TXT
 }
 
 _python_optimize() {
@@ -216,7 +206,7 @@ package_clang-minimal-git() {
 
   # clang libraries
   install -d "$pkgdir"/usr/lib
-  cp -a $srcdir/clang/lib/{libear,libscanbuild,clang,cmake,libclang*} $pkgdir/usr/lib
+  cp -a "$srcdir"/clang/lib/{libear,libscanbuild,clang,cmake,libclang*} "$pkgdir"/usr/lib
 
   # clang binaries
   install -d "$pkgdir"/usr/bin
@@ -240,11 +230,11 @@ package_clang-minimal-git() {
     "$pkgdir/$site_packages/libscanbuild/analyze.py"
 
   # Compile Python scripts
-  _python_optimize "$pkgdir"/usr/share "$pkgdir"/$site_packages
+  _python_optimize "$pkgdir"/usr/share "$pkgdir"/"$site_packages"
 
-  install -Dm644 "$srcdir"/llvm-project/compiler-rt/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/compiler-rt-LICENSE.TXT
-  install -Dm644 "$srcdir"/llvm-project/clang-tools-extra/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/clang-tools-extra-LICENSE.TXT
-  install -Dm644 "$srcdir"/llvm-project/clang/LICENSE.TXT "$pkgdir"/usr/share/licenses/$pkgname/clang-LICENSE.TXT
+  install -Dm644 "$srcdir"/llvm-project/compiler-rt/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/compiler-rt-LICENSE.TXT
+  install -Dm644 "$srcdir"/llvm-project/clang-tools-extra/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/clang-tools-extra-LICENSE.TXT
+  install -Dm644 "$srcdir"/llvm-project/clang/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/clang-LICENSE.TXT
 }
 
 package_libc++-minimal-git() {
