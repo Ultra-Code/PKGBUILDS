@@ -6,12 +6,12 @@
 # INFO: https://llvm.org/docs/BuildingADistribution.html
 # INFO: https://libcxx.llvm.org/BuildingLibcxx.html
 
-pkgname=(llvm-minimal-git llvm-libs-minimal-git clang-minimal-git libc++-minimal-git libc++abi-minimal-git)
+pkgname=(llvm-slim-git llvm-libs-slim-git clang-slim-git libc++-slim-git libc++abi-slim-git)
 pkgver=19.0.0_r497376.2647bd7369
 pkgrel=1
 pkgdesc='C language family frontend for LLVM (trimmed down git version)'
 url="https://llvm.org/"
-pkgbase=llvm-minimal-git
+pkgbase=llvm-slim-git
 arch=('x86_64')
 license=('custom:Apache 2.0 with LLVM Exception')
 makedepends=(git ninja cmake clang mold libffi libedit ncurses libxml2 libxcrypt python python-setuptools)
@@ -129,9 +129,9 @@ build() {
   ninja -C _build
 }
 
-package_llvm-minimal-git() {
+package_llvm-slim-git() {
   pkgdesc="Collection of modular and reusable compiler and toolchain technologies, trimmed down git version"
-  depends=(llvm-libs-minimal-git="$pkgver-$pkgrel")
+  depends=(llvm-libs-slim-git="$pkgver-$pkgrel")
   provides=('llvm')
   conflicts=('llvm')
   optdepends=('python: for using lit (LLVM Integrated Tester)'
@@ -149,10 +149,10 @@ package_llvm-minimal-git() {
   # Remove symlinks to prevent conflict with repo llvm-libs
   rm -f "$pkgdir"/usr/lib/lib{LLVM,LTO,Remarks}.so
 
-  # prepare llvm-libs dir in srcdir to store llvm runtime libraries files that would be part of llvm-libs-minimal-git package
+  # prepare llvm-libs dir in srcdir to store llvm runtime libraries files that would be part of llvm-libs-slim-git package
   mkdir -p "$srcdir"/llvm-libs && mv -f "$pkgdir"/usr/lib/{libLLVM*.so*,libLTO.so.*,libRemarks.so.*} "$srcdir"/llvm-libs
 
-  # prepare clang dir to store clang-minimal-git package files
+  # prepare clang dir to store clang-slim-git package files
   mkdir -p "$srcdir"/clang/{bin,lib/{cmake,},include,share}
 
   mv -f "$pkgdir"/usr/lib/{clang,libear,libscanbuild,libclang{,-cpp}.so*} "$srcdir"/clang/lib
@@ -179,7 +179,7 @@ package_llvm-minimal-git() {
   install -Dm644 "$srcdir"/llvm-project/llvm/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE.TXT
 }
 
-package_llvm-libs-minimal-git() {
+package_llvm-libs-slim-git() {
   pkgdesc="LLVM runtime libraries, trimmed down trunk version"
   depends=(llvm-libs zlib libffi libedit ncurses libxml2)
   # create $pkgdir/usr/lib and copy content from llvm-libs/* into it
@@ -195,12 +195,12 @@ _python_optimize() {
   python -OO -m compileall "$@"
 }
 
-package_clang-minimal-git() {
+package_clang-slim-git() {
   pkgdesc='C language family frontend for LLVM (trimmed down git version)'
-  depends=(llvm-libs-minimal-git clang)
+  depends=(llvm-libs-slim-git clang)
   optdepends=('openmp: OpenMP support in clang with -fopenmp'
     'python: for scan-view, scan-build, git-clang-format, clang-rename and python bindings'
-    'llvm-minimal-git: referenced by some clang headers')
+    'llvm-slim-git: referenced by some clang headers')
   conflicts=(compiler-rt clang)
   provides=(compiler-rt clang clang-analyzer clang-tools-extra)
 
@@ -237,11 +237,11 @@ package_clang-minimal-git() {
   install -Dm644 "$srcdir"/llvm-project/clang/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/clang-LICENSE.TXT
 }
 
-package_libc++-minimal-git() {
+package_libc++-slim-git() {
   pkgdesc='C language family frontend for LLVM (trimmed down git version)'
-  depends=(libc++abi-minimal-git="$pkgver-$pkgrel")
+  depends=(libc++abi-slim-git="$pkgver-$pkgrel")
   conflicts=(libc++)
-  provides=(libc++-minimal-git)
+  provides=(libc++-slim-git)
 
   #prepare libcxxabi files
   mkdir -p "$srcdir"/libcxxabi/{lib,include/c++/v1}
@@ -260,11 +260,11 @@ package_libc++-minimal-git() {
   install -Dm0644 "$srcdir"/llvm-project/libcxx/LICENSE.TXT "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
 }
 
-package_libc++abi-minimal-git() {
+package_libc++abi-slim-git() {
   pkgdesc='C language family frontend for LLVM (trimmed down git version)'
   depends=(llvm-libs)
   conflicts=(libc++abi)
-  provides=(libc++abi-minimal-git)
+  provides=(libc++abi-slim-git)
 
   #package libcxxabi
   install -d "$pkgdir"/usr
